@@ -49,7 +49,7 @@
 ### Технические риски
 
 Разработка системы аналитики -- задача не из простых.
-Ниже пример требований от студии, на которые я ориентировался.
+Ниже -- пример требований от студии, на которые я ориентировался.
 
 * Хранение большого объема данных: > 3Tb
 * Высокая нагрузка на сервис: > 10000 events / sec
@@ -365,10 +365,12 @@ Azure Functions, опять же, самое гибкое решение. В Azu
 ## Контакты
 
 Больше технических деталей:
-Мой канал про игровую разработку: https://t.me/poisonous_johns_lair
-Telegram: https://t.me/poisonous_john
-E-mail: [ivfateev@microsoft.com](mailto:ivfateev@microsoft.com)
+
+* Мой канал про игровую разработку: https://t.me/poisonous_johns_lair
+* Telegram: https://t.me/poisonous_john
+* E-mail: [ivfateev@microsoft.com](mailto:ivfateev@microsoft.com)
 
 Если вы хотите сделать такой же сценарий, или есть интересные идеи:
-E-mail: [v-ivanko@microsoft.com](mailto:v-ivanko@microsoft.com)
-Telegram: https://t.me/ivan_kopytov
+
+* Telegram: https://t.me/ivan_kopytov
+* E-mail: [v-ivanko@microsoft.com](mailto:v-ivanko@microsoft.com)
