@@ -191,7 +191,7 @@ public class LocalGameStateManager : IGameStateManager
     private static readonly string GAME_STATE_PATH = Path.Combine(Application.persistentDataPath, "gameState.json"); }
 ```
 
-В [предыдущей статье](https://medium.com/p/%D0%B0%D0%BD%D1%82%D0%B8%D0%BF%D0%B0%D1%82%D1%82%D0%B5%D1%80%D0%BD%D1%8B-%D0%B2-%D0%B8%D0%B3%D1%80%D0%BE%D0%B2%D0%BE%D0%B9-%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%BA%D0%B5-%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8-%D0%B2-%D0%BA%D0%BE%D0%B4%D0%B5-1bd879ef46ad) я рассматривал проблему зависимостей, и говорил о паттерне Dependency Injection (DI).
+В [предыдущей статье](http://goo.gl/NP9Yfy) я рассматривал проблему зависимостей, и говорил о паттерне Dependency Injection (DI).
 
 Настало время его использовать. Для Unity3d есть простой и удобный DI фреймворк [Zenject](https://github.com/modesttree/Zenject). Его и буду использовать. Установка и настройка довольно трививальны, и описаны подробно в документации. Поэтому сразу к делу. Объявим байндинг для IGameStateManager.
 
@@ -531,16 +531,313 @@ public class CoinsView : MonoBehaviour
 
 Каждая итерация тестирования будет занимать **минимум** 10 минут. Обычно нужно несколько итераций, а между ними нужно что-то чинить.
 
-Покажу интересный прием с использованием паттерна команд, который избавит вас от некоторой головной боли.
+Покажу интересный прием с использованием вышеописанного паттерна, который избавит вас от некоторой головной боли.
 
-Подходим к самому вкусному. В коде из предыдущего пункта явно закрался баг. Ведь количество монет может быть отрицательным. Конечно, кейс далеко не самый сложный, но я надеюсь, у вас хорошее воображение.
+В коде из предыдущего пункта явно закрался баг. Ведь количество монет может быть отрицательным. Конечно, кейс далеко не самый сложный, но я надеюсь, у вас хорошее воображение.
 
-Представьте, что логика сложная и баг трудоемко воспроизводить каждый раз.
+Представьте, что логика сложная и баг трудоемко воспроизводить каждый раз. Но вот мы, или тестер на него случайно наткнулись. Что, если этот баг можно было бы "сохранить"?
 
-> Теперь сам трюк: сохраним стейт, который был при запуске игры, а так же всю историю команд, совершенных над ним.
+> Теперь сам трюк: сохраним стейт, который был при запуске игры, а так же всю историю команд, совершенных над ним в течение игровой сессии.
 
-Этих данных достаточно, чтобы воспроизводить баг столько раз, сколько необходимо, за доли секунды. При этом вам даже нет необходимости запускать UI. Ведь все модификации поломанного стейта хранятся в истории. Это как небольшой интеграционный тест-кейс.
+Этих данных достаточно, чтобы воспроизводить баг столько раз, сколько необходимо, за доли секунды. При этом, даже нет необходимости запускать UI. Ведь все модификации поломанного стейта хранятся в истории. Это как небольшой интеграционный тест-кейс.
 
-Создадим дебажную версию экзекутора, который умеет хранить историю команд. Я бы не хотел, чтобы в релизном проекте история забивала память, поэтому я сделаю регистрацию данного сервиса только при наличии DEBUG дефайна.
+Переходим к реализации. Так как данное решение предполагает немного более продвинутую сериализацию, вроде сериализации интерфейсов, JsonUtility будет недостаточно. Поэтому я поставлю Json.Net for Unity из ассет стора.
 
+Для начала, сделаем дебажную версию `IGameStateManager`, которая копирует "начальное" состояние игры в отдельный файл. То есть то состояние, что было на момент запуска игры.
 
+```csharp
+public class DebugGameStateManager : LocalGameStateManager
+{
+    public override void Load()
+    {
+        base.Load();
+        File.WriteAllText(BACKUP_GAMESTATE_PATH, JsonUtility.ToJson(GameState));
+    }
+
+    public void SaveBackupAs(string name)
+    {
+        File.Copy(
+            Path.Combine(Application.persistentDataPath, "gameStateBackup.json"),
+            Path.Combine(Application.persistentDataPath, name + ".json"), true);
+    }
+
+    public void RestoreBackupState(string name)
+    {
+        var path = Path.Combine(Application.persistentDataPath, name + ".json");
+        Debug.Log("Restoring state from " + path);
+        GameState = JsonUtility.FromJson<GameState>(File.ReadAllText(path));
+    }
+
+    private static readonly string BACKUP_GAMESTATE_PATH
+                            = Path.Combine(Application.persistentDataPath, "gameStateBackup.json");
+
+}
+```
+
+За кадром я оставил преобразование методов родительского класса в виртуальные. Оставлю это вам как упражнение. Ко всему прочему добавлен метод `SaveBackupAs`, который понадобится в дальнейшем, чтобы мы могли сохранять наши "слепки" с определенным именем.
+
+Теперь создадим дебажную версию экзекутора, который умеет хранить историю команд, да и вообще сохраняет полный слепок "начлаьное состояние+команды".
+
+```csharp
+public class DebugCommandsExecutor : DefaultCommandsExecutor
+{
+    public IList<IGameStateCommand> commandsHistory { get { return _commands; } }
+    public DebugCommandsExecutor(IGameStateManager gameStateManager)
+        : base(gameStateManager)
+    {
+
+    }
+
+    public void SaveReplay(string name)
+    {
+        ((DebugGameStateManager)_gameStateManager).SaveBackupAs(name);
+        File.WriteAllText(GetReplayFile(name),
+                            JsonConvert.SerializeObject(new CommandsHistory { commands = _commands },
+                                                        _jsonSettings));
+    }
+
+    public void LoadReplay(string name)
+    {
+        ((DebugGameStateManager)_gameStateManager).RestoreBackupState(name);
+        _commands = JsonConvert.DeserializeObject<CommandsHistory>(
+                        File.ReadAllText(GetReplayFile(name)),
+                        _jsonSettings
+                    ).commands;
+        _stateUpdated(_gameStateManager.GameState);
+    }
+
+    public void Replay(string name, int toIndex)
+    {
+        ((DebugGameStateManager)_gameStateManager).RestoreBackupState(name);
+        LoadReplay(name);
+        var history = _commands;
+        _commands = new List<IGameStateCommand>();
+        for (int i = 0; i < Math.Min(toIndex, history.Count); ++i)
+        {
+            Execute(history[i]);
+        }
+        _commands = history;
+    }
+
+    private string GetReplayFile(string name)
+    {
+        return  Path.Combine(Application.persistentDataPath, name + "_commands.json");
+    }
+
+    public override void Execute(IGameStateCommand command)
+    {
+        _commands.Add(command);
+        base.Execute(command);
+    }
+
+    private List<IGameStateCommand> _commands = new List<IGameStateCommand>();
+
+    public class CommandsHistory
+    {
+        public List<IGameStateCommand> commands;
+    }
+
+    private readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings() {
+        TypeNameHandling = TypeNameHandling.All
+    };
+}
+```
+
+Здесь как раз видно, что стандартных возможностей JsonUtility не хватило бы. Мне пришлось задать `TypeNameHandling` для настроек сериализации, чтобы при загрузке/сохранении слепка команды десериализовались именно в типизированные объекты, ведь к ним привязана логика.
+
+Что еще примечательного в этом экзекуторе?
+
+* Сохраняет каждую команду в историю
+* Умеет сохрнять и восстанавливать историю команд и стейт игры
+* Ключевой метод Replay "прогирывает" все команды, начиная с изначального состояния игры, и до команды с указанным индексом
+
+Я бы не хотел, чтобы в релизном проекте, история забивала память, поэтому я сделаю регистрацию данного сервиса в DI только при наличии DEBUG дефайна.
+
+```csharp
+public class BindingsInstaller : MonoInstaller<BindingsInstaller>
+{
+    public override void InstallBindings()
+    {
+        Container.Bind<Loader>().FromNewComponentOnNewGameObject().AsSingle().NonLazy();
+    #if DEBUG
+        Container.Bind<IGameStateManager>().To<DebugGameStateManager>().AsSingle();
+        Container.Bind<IGameStateCommandsExecutor>().To<DebugCommandsExecutor>().AsSingle();
+    #else
+        Container.Bind<IGameStateManager>().To<LocalGameStateManager>().AsSingle();
+        Container.Bind<IGameStateCommandsExecutor>().To<DefaultCommandsExecutor>().AsSingle();
+    #endif
+    }
+}
+```
+
+Ах да, нужно подготовить команду к сериализации:
+
+```csharp
+public class AddCoinsCommand : IGameStateCommand
+{
+
+    public AddCoinsCommand(int amount)
+    {
+        _amount = amount;
+    }
+
+    public void Execute(GameState gameState)
+    {
+        gameState.coins += _amount;
+    }
+
+    public override string ToString() {
+        return GetType().ToString() + " " + _amount;
+    }
+
+    [JsonProperty("amount")]
+    private int _amount;
+}
+```
+
+Здесь я добавил JsonProperty, так как свойство приватное. Так же я добавил ToString(), чтобы красиво выводить команду в дальнейшем.
+
+Чтобы заработала дебажная версия, не забудьте добавить "DEBUG" в Player Settings -> Other Settings -> Scripting define symbols.
+
+Далее я хочу иметь возможность сохранять/загружать историю команд и состояние прямо из интерфейса Unity. Намутим отдельный EditorWindow.
+
+```csharp
+public class CommandsHistoryWindow : EditorWindow
+{
+
+    [MenuItem("Window/CommandsHistoryWindow")]
+    public static CommandsHistoryWindow GetOrCreateWindow()
+    {
+        var window = EditorWindow.GetWindow<CommandsHistoryWindow>();
+        window.titleContent = new GUIContent("CommandsHistoryWindow");
+        return window;
+    }
+
+    public void OnGUI()
+    {
+
+        // this part is required to get
+        // DI context of the scene
+        var sceneContext = GameObject.FindObjectOfType<SceneContext>();
+        if (sceneContext == null || sceneContext.Container == null)
+        {
+            return;
+        }
+        // this guard ensures that OnGUI runs only when IGameStateCommandExecutor exists
+        // in other words only in runtime
+        var executor = sceneContext.Container.TryResolve<IGameStateCommandsExecutor>() as DebugCommandsExecutor;
+        if (executor == null)
+        {
+            return;
+        }
+
+        // general buttons to load and save "snapshot"
+        EditorGUILayout.BeginHorizontal();
+        _replayName = EditorGUILayout.TextField("Replay name", _replayName);
+        if (GUILayout.Button("Save"))
+        {
+            executor.SaveReplay(_replayName);
+        }
+        if (GUILayout.Button("Load"))
+        {
+            executor.LoadReplay(_replayName);
+        }
+        EditorGUILayout.EndHorizontal();
+
+        // and the main block which allows us to walk through commands step by step
+        EditorGUILayout.LabelField("Commands: " + executor.commandsHistory.Count);
+        for (int i = 0; i < executor.commandsHistory.Count; ++i)
+        {
+            var cmd = executor.commandsHistory[i];
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(cmd.ToString());
+            if (GUILayout.Button("Step to"))
+            {
+                executor.Replay(_replayName, i + 1);
+            }
+            EditorGUILayout.EndHorizontal();
+
+        }
+    }
+
+    private string _replayName;
+}
+```
+
+Получилось довольно простенько. Теперь как это выглядит?
+
+![Animated GIF of commandHistoryWindow](images/commandHistoryWindow.gif)
+
+Я сразу сохранил пустой "initial" стейт, чтобы, если что к нему вернуться.
+Далее я натыкал пару раза кнопками, счетчик монет поменялся, а так же мы видим список команд, примененных к стейту.
+
+Затем я сохранил полученный слепок под именем version1.
+
+Далее я использую кнопки Step to, чтобы "проиграть" изменения по новой, до определенной команды.
+
+Теперь вернемся к багу с отрицательным значением монет. Допустим тестер случайно наткнулся на баг. Я сделал кнопку "сохранить снапшот" только в юнити, но это можно вынести и в интерфейс игры. В данном случае, тестер может указать имя снапшота "negativeCoins" и тыкнуть на кнопку save.
+
+Дальше он может залезть в папку с сохранениями, и найти два файла negativeCoins.json и negativeCoins_commands.json, и кинуть их разработчику. Разработчик кладет их к себе в папку с сохранками, пишет то же название negativeCoins, тыкает Load и вуаля. У нас на руках готовый тест кейс.
+
+Более того, можно сделать пустую сцену, без UI, на которой можно только проигрывать снапшоты и смотреть на стейт. И это может сэкономить кучу времени.
+
+Вокруг этого функционала даже можно построить процесс интеграционного тестирования. Например, хранить список проблемных "слепков", который нужно тестировать при каждой пересборке билда, и следить, чтобы ничего не отломалось.
+
+Ну да ладно фантазировать, пофиксим баг уже.
+
+```csharp
+public class AddCoinsCommand : IGameStateCommand
+{
+
+    public AddCoinsCommand(int amount)
+    {
+        _amount = amount;
+    }
+
+    public void Execute(GameState gameState)
+    {
+        gameState.coins += _amount;
+        // this is the fix
+        if (gameState.coins < 0)
+        {
+            gameState.coins = 0;
+        }
+    }
+
+    public override string ToString() {
+        return GetType().ToString() + " " + _amount;
+    }
+
+    [JsonProperty("amount")]
+    private int _amount;
+}
+```
+
+И проверим фикс на слепке `version1`, который я сохранил в прошлый раз.
+
+![Animated GIF of fixed bug replayed with CommandsHistoryWindow](images/fixedBug.gif)
+
+Как мы видим, монеты больше не уходят в минус. Победа!
+
+## Подводим итоги
+
+В статье я рассказал свое видение паттерна Command. Я считаю что у него очень много применени. Я показал всего лишь несколько из тех, что я использую.
+
+Так же я затронул больную тему UI, подход Flux, а так же реактивный подход в UI.
+
+Скомпоновав эти паттерны вместе, получилась довольная гибкая штука, которую должно быть удобно поддерживать, рефакторить, дебажить. Конечно, много чего еще можно улучшить/доработать. Но это уже на ваше усмотрение =).
+
+Что я хочу еще отметить. Я считаю, что в данном случае, реактивность UI, а так же использование команд, сильно развязали руки. Ведь, когда я добавил дебажные версии экзекутора и GameStateManager'a, в UI я абсолютно ничего не менял.
+
+Исходный код вы можете найти в [репозитории](https://github.com/PoisonousJohn/articles/tree/master/Telegram_Posts/decoupling-via-commands/Code).
+
+Построение UI -- это довольно обширная тема, и этому будет посвящена отдельная статья.
+
+Если вам понравилась эта статья, ставьте лайк =), пишите комменты.
+
+Подписывайтесь на меня, чтобы не пропустить новые статьи:
+
+* [Мой канал GameDev Architecture](https://t.me/gamedev_architecture)
+* [Я в Telegram](https://t.me/poisonous_john)
+* [Я на Github](https://github.com/poisonousjohn)
+* [Мой Twitter](https://twitter.com/poisonous_john)
