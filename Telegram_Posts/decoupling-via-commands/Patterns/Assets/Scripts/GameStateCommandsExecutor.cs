@@ -52,19 +52,18 @@ public class DefaultCommandsExecutor : IGameStateCommandsExecutor
     protected Action<GameState> _stateUpdated;
 
 }
-
 public class DebugCommandsExecutor : DefaultCommandsExecutor
 {
     public IList<IGameStateCommand> commandsHistory { get { return _commands; } }
-    public DebugCommandsExecutor(IGameStateManager gameStateManager)
+    public DebugCommandsExecutor(DebugGameStateManager gameStateManager)
         : base(gameStateManager)
     {
-
+        _debugGameStateManager = gameStateManager;
     }
 
     public void SaveReplay(string name)
     {
-        ((DebugGameStateManager)_gameStateManager).SaveBackupAs(name);
+        _debugGameStateManager.SaveBackupAs(name);
         File.WriteAllText(GetReplayFile(name),
                             JsonConvert.SerializeObject(new CommandsHistory { commands = _commands },
                                                         _jsonSettings));
@@ -72,7 +71,7 @@ public class DebugCommandsExecutor : DefaultCommandsExecutor
 
     public void LoadReplay(string name)
     {
-        ((DebugGameStateManager)_gameStateManager).RestoreBackupState(name);
+        _debugGameStateManager.RestoreBackupState(name);
         _commands = JsonConvert.DeserializeObject<CommandsHistory>(
                         File.ReadAllText(GetReplayFile(name)),
                         _jsonSettings
@@ -82,7 +81,7 @@ public class DebugCommandsExecutor : DefaultCommandsExecutor
 
     public void Replay(string name, int toIndex)
     {
-        ((DebugGameStateManager)_gameStateManager).RestoreBackupState(name);
+        _debugGameStateManager.RestoreBackupState(name);
         LoadReplay(name);
         var history = _commands;
         _commands = new List<IGameStateCommand>();
@@ -114,4 +113,5 @@ public class DebugCommandsExecutor : DefaultCommandsExecutor
     private readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings() {
         TypeNameHandling = TypeNameHandling.All
     };
+    private readonly DebugGameStateManager _debugGameStateManager;
 }

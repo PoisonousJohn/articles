@@ -1,6 +1,6 @@
 # Развязываем игровой код с помощью паттерна Command, и дебажим, летая на машине времени
 
-![Картинка для привлечения внимания: > Replay bug-10492; going back in time](https://github.com/PoisonousJohn/articles/raw/master/Telegram_Posts/decoupling-via-commands/images/time-machine.png)
+[![Картинка для привлечения внимания: > Replay bug-10492; going back in time](https://github.com/PoisonousJohn/articles/raw/master/Telegram_Posts/decoupling-via-commands/images/time-machine.png)](https://habrahabr.ru/post/350630/)
 
 Привет! Я пишу статьи, посвященые архитектуре в игровой разработке. В этой статье я хочу разобрать паттерн [Команда (Command)](https://ru.wikipedia.org/wiki/%D0%9A%D0%BE%D0%BC%D0%B0%D0%BD%D0%B4%D0%B0_(%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD_%D0%BF%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D1%8F)). Он многогранен, и может быть применен по-разному. Но я покажу, как сделать мой любимый трюк -- машина времени для отладки изменений гейм стейта.
 
@@ -104,12 +104,12 @@ public class WriteToConsoleCommand : ICommand
 
 * В команде сохраняется все, что необходимо до ее исполнения. Она, по сути, иммутабельный объект. Поэтому ее легко передавать по сети, и одинаково исполнять как на клиенте, так и на сервере. Конечно, это при условии, что при одинаковых входных параметрах и клиент, и сервер, дают одни и те же результаты.
 * Команда представляет собой очень маленький кусочек логики. Ее легко писать, легко понимать, и легко отлаживать. Так как команда иммутабельна, и не содержит никаких дополнительных зависимостей, для нее легко писать unit-тесты.
-* Сложную бизнес логику легко выражать посредством набора простейших команд. Команды легко переиспользовать.
-* Команда выступает может выступать чекпойнтом, ну или транзакцией, как вам больше нравится. Если изменение состояния данных происходит только посредством команд, это упрощает отладку, да и понимание программы. Если что-то сломалось, вы всегда можете проследить какая команда привела к ошибке. Что удобно -- можно видеть и параметры, с которыми была выполнена команда.
+* Сложную бизнес логику легко выражать посредством набора простейших команд. Команды легко переиспользовать и компоновать в последовательности.
+* Команда может выступать чекпойнтом, ну или транзакцией, как вам больше нравится. Если изменение состояния данных происходит только посредством команд, это упрощает отладку, да и понимание программы. Если что-то сломалось, вы всегда можете проследить какая команда привела к ошибке. Что удобно -- можно видеть и параметры, с которыми была выполнена команда.
 * Выполнение команд может быть отложенным. Типичный пример -- отправка команды на сервер. Когда пользователь инициировал какое-либо действие в игре, создается команда, и добавляется в очередь на исполнение. Фактическое же исполнение команды происходит только после подтверждения от сервера.
 * Так как команды достаточно абстрагированы от всех зависимостей, легко менять архитектуру. Например, если раньше код был только оффлайнов и управление AI происходило только локально, то его легко поменять на управление AI с помощью сервера. Ведь коду без разницы кто отправляет команды, локальный код, или сервер.
-* Код, написанный с идеологией команд, немного отличается от традиционного подхода с вызовом функций. Когда программист создает команду, он сообщает о необходимости изменить состояние. Как и когда это будет сделано -- его не интересует. Это позволяет творить интересные вещи.
 * Известная фишка команд -- можно не только применять изменения, но и сделать поддержку "отмены" действия
+* Код, написанный с идеологией команд, немного отличается от традиционного подхода с вызовом функций. Когда программист создает команду, он сообщает о необходимости изменить состояние. Как и когда это будет сделано -- его не интересует. Это позволяет творить интересные вещи.
 
 Немного подробнее про последний пункт. Например, у вас была синхронная функция, которая должна стать асинхронной. Чтобы ее сделать это, вам необходимо изменить ее сигнатуру, и написать механизм обработки асинхронного результата в виде коллбека, или корутины, или async/await (если вы переползли на .net 4.6). И так каждый раз, для каждой отдельно взятой функции.
 
@@ -133,7 +133,7 @@ public class WriteToConsoleCommand : ICommand
 
 Я предлагаю систему, похожую на Redux. Основная идея, что Redux предлагает хранить все состояние приложения в одном объекте. То есть одной модели.
 
-Некоторые тут ужаснутся. Но ведь сериализация игрового состояния, чаще всего, и сводится в сериализации одного объекта. Это довольно естественный подход для игр.
+Некоторые тут ужаснутся. Но ведь сериализация игрового состояния, чаще всего, и сводится к сериализации одного объекта. Это довольно естественный подход для игр.
 
 Вторая идея в том, что состояние модифицируется с помощью Action'ов. По сути -- это ровно то же, что и Command, описанный ранее. View не может модифцировать состояние напрямую, а только посредством команды.
 
@@ -200,11 +200,11 @@ public class LocalGameStateManager : IGameStateManager
     private static readonly string GAME_STATE_PATH = Path.Combine(Application.persistentDataPath, "gameState.json"); }
 ```
 
-В [предыдущей статье](http://goo.gl/NP9Yfy) я рассматривал проблему зависимостей, и говорил о паттерне Dependency Injection (DI).
+В [предыдущей статье](http://goo.gl/NP9Yfy) я рассматривал проблему зависимостей, и говорил о паттерне Dependency Injection (DI). Настало время его использовать.
 
-Настало время его использовать. Для Unity3d есть простой и удобный DI фреймворк [Zenject](https://github.com/modesttree/Zenject). Его и буду использовать. Установка и настройка довольно трививальны, и описаны подробно в документации. Поэтому сразу к делу. Объявим байндинг для IGameStateManager.
+Для Unity3d есть простой и удобный DI фреймворк [Zenject](https://github.com/modesttree/Zenject). Его и буду использовать. Установка и настройка довольно трививальны, и описаны подробно в документации. Поэтому сразу к делу. Объявим байндинг для IGameStateManager.
 
-Я создал свой экземпляр `MonoInstaller` под названием `BindingsInstaller` согласно документации и добавил его на сцену.
+Я создал свой экземпляр `MonoInstaller` под названием `BindingsInstaller`, согласно документации, и добавил его на сцену.
 
 ```csharp
 public class BindingsInstaller : MonoInstaller<BindingsInstaller>
@@ -484,7 +484,7 @@ public class DefaultCommandsExecutor : IGameStateCommandsExecutor
 }
 ```
 
-Стоит обратить внимание на реализацию ивента. Так как экзекутор шарит состояние только внутри ивента, важно его дергать при подписке.
+Стоит обратить внимание на реализацию ивента. Так как экзекутор шарит состояние только внутри ивента, важно его сразу дергать при подписке.
 
 Теперь, наконец-то, обновим View.
 
@@ -526,13 +526,13 @@ public class CoinsView : MonoBehaviour
 }
 ```
 
-`IGameStateManager` теперь не нужен для View, так как UpdateView принимает GameState в качестве параметра. Сам UpdateView мы подписываем на событие в `IGameStateCommandsExecutor`. Он будет вызываться при любом изменении состояния. Так же мы не забываем отписываться от события в OnDestroy.
+`IGameStateManager` теперь не нужен для View, так как UpdateView принимает GameState в качестве параметра. Отлично, избавились от лишней зависимости! Сам UpdateView мы подписываем на событие в `IGameStateCommandsExecutor`. Он будет вызываться при любом изменении состояния. Так же мы не забываем отписываться от события в OnDestroy.
 
 Вот такой получился подход. Довольно чистый. Не замысловатый. Теперь невозможно забыть вызвать UpdateView в каком-то месте, при каком-то чертовом условии, которое воспроизводится только в определенную фазу луны.
 
 Ну что-ж. Выдохнули, и идем дальше, там еще больше плюшек.
 
-## Используем историю команд для отладки сложной логики
+## Используем историю команд в качестве машины времени для отладки сложной логики
 
 Как вы тестируете баги? Запускаем приложение, и следуем шагам по воспроизведению бага. Часто эти шаги выполняются вручную, ходим по UI, тыкаем кнопочки, все дела.
 
@@ -591,15 +591,15 @@ public class DebugGameStateManager : LocalGameStateManager
 public class DebugCommandsExecutor : DefaultCommandsExecutor
 {
     public IList<IGameStateCommand> commandsHistory { get { return _commands; } }
-    public DebugCommandsExecutor(IGameStateManager gameStateManager)
+    public DebugCommandsExecutor(DebugGameStateManager gameStateManager)
         : base(gameStateManager)
     {
-
+        _debugGameStateManager = gameStateManager;
     }
 
     public void SaveReplay(string name)
     {
-        ((DebugGameStateManager)_gameStateManager).SaveBackupAs(name);
+        _debugGameStateManager.SaveBackupAs(name);
         File.WriteAllText(GetReplayFile(name),
                             JsonConvert.SerializeObject(new CommandsHistory { commands = _commands },
                                                         _jsonSettings));
@@ -607,7 +607,7 @@ public class DebugCommandsExecutor : DefaultCommandsExecutor
 
     public void LoadReplay(string name)
     {
-        ((DebugGameStateManager)_gameStateManager).RestoreBackupState(name);
+        _debugGameStateManager.RestoreBackupState(name);
         _commands = JsonConvert.DeserializeObject<CommandsHistory>(
                         File.ReadAllText(GetReplayFile(name)),
                         _jsonSettings
@@ -617,7 +617,7 @@ public class DebugCommandsExecutor : DefaultCommandsExecutor
 
     public void Replay(string name, int toIndex)
     {
-        ((DebugGameStateManager)_gameStateManager).RestoreBackupState(name);
+        _debugGameStateManager.RestoreBackupState(name);
         LoadReplay(name);
         var history = _commands;
         _commands = new List<IGameStateCommand>();
@@ -649,6 +649,7 @@ public class DebugCommandsExecutor : DefaultCommandsExecutor
     private readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings() {
         TypeNameHandling = TypeNameHandling.All
     };
+    private readonly DebugGameStateManager _debugGameStateManager;
 }
 ```
 
@@ -670,6 +671,7 @@ public class BindingsInstaller : MonoInstaller<BindingsInstaller>
         Container.Bind<Loader>().FromNewComponentOnNewGameObject().AsSingle().NonLazy();
     #if DEBUG
         Container.Bind<IGameStateManager>().To<DebugGameStateManager>().AsSingle();
+        Container.Bind<DebugGameStateManager>().AsSingle();
         Container.Bind<IGameStateCommandsExecutor>().To<DebugCommandsExecutor>().AsSingle();
     #else
         Container.Bind<IGameStateManager>().To<LocalGameStateManager>().AsSingle();
@@ -840,7 +842,7 @@ public class AddCoinsCommand : IGameStateCommand
 
 Что я хочу еще отметить. Я считаю, что в данном случае, реактивность UI, а так же использование команд, сильно развязали руки. Ведь, когда я добавил дебажные версии экзекутора и GameStateManager'a, в UI я абсолютно ничего не менял.
 
-Исходный код вы можете найти в [репозитории](https://github.com/PoisonousJohn/articles/raw/master/Telegram_Posts/decoupling-via-commands/Code).
+Исходный код вы можете найти в [репозитории](https://github.com/PoisonousJohn/articles/tree/master/Telegram_Posts/decoupling-via-commands/Patterns).
 
 Построение UI -- это довольно обширная тема, и этому будет посвящена отдельная статья.
 

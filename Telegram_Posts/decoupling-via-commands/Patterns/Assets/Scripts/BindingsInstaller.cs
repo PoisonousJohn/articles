@@ -8,6 +8,7 @@ public class BindingsInstaller : MonoInstaller<BindingsInstaller>
         Container.Bind<Loader>().FromNewComponentOnNewGameObject().AsSingle().NonLazy();
     #if DEBUG
         Container.Bind<IGameStateManager>().To<DebugGameStateManager>().AsSingle();
+        Container.Bind<DebugGameStateManager>().AsSingle();
         Container.Bind<IGameStateCommandsExecutor>().To<DebugCommandsExecutor>().AsSingle();
     #else
         Container.Bind<IGameStateManager>().To<LocalGameStateManager>().AsSingle();
