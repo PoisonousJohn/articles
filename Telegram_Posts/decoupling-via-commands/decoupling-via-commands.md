@@ -1,8 +1,16 @@
-# Развязываем игровой код c помощью паттерна "Command"
+# Развязываем игровой код с помощью паттерна Command, и дебажим, летая на машине времени
 
-В [предыдущей статье](http://goo.gl/NP9Yfy) я поднимал вопрос развязывания кода. И рассмотрел несколько вариантов: интерфейсы, Dependency Injection.
+![Картинка для привлечения внимания: > Replay bug-10492; going back in time](https://github.com/PoisonousJohn/articles/tree/master/Telegram_Posts/decoupling-via-commands/images/time-machine.png)
 
-В этой статье я хочу разобрать еще один паттерн: [Команда (Command)](https://ru.wikipedia.org/wiki/%D0%9A%D0%BE%D0%BC%D0%B0%D0%BD%D0%B4%D0%B0_(%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD_%D0%BF%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D1%8F)). Он поможет избежать лишних зависимостей и упростить сложные алгоритмы. Это один из моих самых любимых паттернов.
+Привет! Я пишу статьи, посвященые архитектуре в игровой разработке. В этой статье я хочу разобрать паттерн [Команда (Command)](https://ru.wikipedia.org/wiki/%D0%9A%D0%BE%D0%BC%D0%B0%D0%BD%D0%B4%D0%B0_(%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD_%D0%BF%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D1%8F)). Он многогранен, и может быть применен по-разному. Но я покажу, как сделать мой любимый трюк -- машина времени для отладки изменений гейм стейта.
+
+Эта штука сэкономила мне кучу времени в поиске и воспроизведении сложных багов. Она позволяет делать "снапшоты" игрового состояния, историю его изменения, и пошагово их применять.
+
+Начинающие разработчики познакомятся с паттерном, а продвинутые, возможно, найдут трюк полезным.
+
+Хотите узнать как это сделать? Прошу под кат.
+<cut />
+Если вы уже знакомы с паттерном Command, то сразу переходите к секции "Делаем модификацию стейта однонаправленной".
 
 ## Паттерн Command
 
@@ -33,7 +41,7 @@ public class WriteToConsoleCommand : ICommand
 }
 ```
 
-А как же их исполнять? Напишем простую систему обработки команд.
+Это эдакий "Hello world" на командах. А как же их исполнять? Напишем простую систему обработки команд.
 
 ```csharp
 public interface IGameSystem
@@ -276,7 +284,7 @@ public class CoinsView : MonoBehaviour
 
 Так не надо делать :). Но пока, давайте убедимся, что наш маленький прототип работает.
 
-![UI Screenshot](images/ui-screenshot.png)
+![UI Screenshot](https://github.com/PoisonousJohn/articles/tree/master/Telegram_Posts/decoupling-via-commands/images/ui-screenshot.png)
 
 Кнопочки работают, состояние сохраняется и восстанавливается при загрузке.
 
@@ -767,7 +775,7 @@ public class CommandsHistoryWindow : EditorWindow
 
 Получилось довольно простенько. Теперь как это выглядит?
 
-![Animated GIF of commandHistoryWindow](images/commandHistoryWindow.gif)
+![Animated GIF of commandHistoryWindow](https://github.com/PoisonousJohn/articles/tree/master/Telegram_Posts/decoupling-via-commands/images/commandHistoryWindow.gif)
 
 Я сразу сохранил пустой "initial" стейт, чтобы, если что к нему вернуться.
 Далее я натыкал пару раза кнопками, счетчик монет поменялся, а так же мы видим список команд, примененных к стейту.
@@ -816,7 +824,7 @@ public class AddCoinsCommand : IGameStateCommand
 
 И проверим фикс на слепке `version1`, который я сохранил в прошлый раз.
 
-![Animated GIF of fixed bug replayed with CommandsHistoryWindow](images/fixedBug.gif)
+![Animated GIF of fixed bug replayed with CommandsHistoryWindow](https://github.com/PoisonousJohn/articles/tree/master/Telegram_Posts/decoupling-via-commands/images/fixedBug.gif)
 
 Как мы видим, монеты больше не уходят в минус. Победа!
 
