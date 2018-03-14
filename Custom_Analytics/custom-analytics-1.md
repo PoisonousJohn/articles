@@ -1,8 +1,12 @@
-# Собственная игровая аналитика за $300 в мес
+# Собственная игровая аналитика за $300 в месяц
 
-По долгу службы, я работаю со многими игровыми компаниями. Я заметил, что по мере роста проектов, в студиях появляется необходимость в продвинутых сценариях аналитики. После того, как несколько игровых компаний заинтересовались данным подходом, я решил задокументировать его в этой статье.
+![Мем об аналитике: - Их аналитика этого не умеет; - Сделай свою; - Долго, да и данных много; - А облако?; - Ты что белены объелся? Дорого!; - $300 за 1kk DAU](https://github.com/PoisonousJohn/articles/raw/master/Custom_Analytics/custom-analytics-images/custom-analytics-1-meme.png)
 
-На рынке много продуктов, подходящих для игровой аналитики: Mixpanel, Localytics, Flurry, devtodev, deltaDNA, GameAnalytics. Но все же многие игровые студии хотят свою систему. Ответы на вопросы "Почему?" и "Как это сделать?" и "Сколько это стоит?" под катом.
+На рынке много продуктов, подходящих для игровой аналитики: Mixpanel, Localytics, Flurry, devtodev, deltaDNA, GameAnalytics. Но все же многие игровые студии строят свое решение.
+
+Я работал и работаю со многими игровыми компаниями. Я заметил, что по мере роста проектов, в студиях появляется необходимость в продвинутых сценариях аналитики. После того, как несколько игровых компаний заинтересовались данным подходом, было решено задокументировать его в серии из двух статей.
+
+Ответы на вопросы "Почему?", "Как это сделать?" и "Сколько это стоит?" вы найдете под катом.
 
 ## Почему?
 
@@ -26,7 +30,7 @@
 
 По холодному пути идут данные, которые обрабатывают периодически (отчеты за день/месяц/год), а так же сырые данные для долгосрочного хранения.
 
-![Typical lambda-architecture](custom-analytics-images/typical-lambda-arch.png)
+![Typical lambda-architecture](https://github.com/PoisonousJohn/articles/raw/master/Custom_Analytics/custom-analytics-images/typical-lambda-arch.png)
 
 Например, это полезно при запуске маркетинговых кампаний. Удобно видеть сколько юзеров пришло с кампаний, сколько из них совершили платеж. Это поможет отключить неэффективные каналы рекламы максимально быстро. Учитывая маркетинговые бюджеты игр -- это может сэкономить много денег.
 
@@ -69,12 +73,12 @@
 
 Возьмем, например, Playerunknown's Battleground. Мы увидим четко-выраженные пики в течение дня.
 
-![Playerunknown's Battleground Daily Peaks](custom-analytics-images/daily-peak.png)
+![Playerunknown's Battleground Daily Peaks](https://github.com/PoisonousJohn/articles/raw/master/Custom_Analytics/custom-analytics-images/daily-peak.png)
 Источник: [SteamDB](https://steamdb.info/app/578080/graphs/)
 
 И если посмотреть на рост Daily Active Users (DAU) в течение года, то заметен довольно быстрый темп.
 
-![Playerunknown's Battleground Year Growth](custom-analytics-images/year-growth.png)
+![Playerunknown's Battleground Year Growth](https://github.com/PoisonousJohn/articles/raw/master/Custom_Analytics/custom-analytics-images/year-growth.png)
 Источник: [SteamDB](https://steamdb.info/app/578080/graphs/)
 
 Не смотря на то, что игра -- хит, похожие графики роста я видел и в обычных проектах. В течение месяца количество пользователей вырастало от 2 до 5 раз.
@@ -91,7 +95,7 @@
 
 Пример архитектуры ниже.
 
-![SQL Server Approach Architecture](custom-analytics-images/sql-approach-arch.png)
+![SQL Server Approach Architecture](https://github.com/PoisonousJohn/articles/raw/master/Custom_Analytics/custom-analytics-images/sql-approach-arch.png)
 
 Такая архитектура обладает рядом недостатков:
 
@@ -222,7 +226,7 @@ Hadoop стек не подойдет для маленьких проектов
 
 Прикинув все за и против, я взялся за реализацию лямбда архитектуры на Azure. Она выглядит следующим образом:
 
-![Azure Lambda Architecture](custom-analytics-images/azure-lambda-arch.png)
+![Azure Lambda Architecture](https://github.com/PoisonousJohn/articles/raw/master/Custom_Analytics/custom-analytics-images/azure-lambda-arch.png)
 
 **Azure Event Hub** -- это очередь, буфер, который способен принимать огромное количество сообщений. Так же есть приятная фича записи сырых данных в хранилище. В данном случае -- Azure Data Lake Storage (ADLS).
 
